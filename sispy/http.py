@@ -130,7 +130,14 @@ class StdLibHandler(BaseHTTPHandler):
                 response = stdlib_urlopen(new_req)
 
         except stdlib_HTTPError as e:
-            response_dict = json.loads(e.read().decode('utf-8'))
+            resp_str = e.read().decode('utf-8')
+
+            try:
+                response_dict = json.loads(resp_str)
+            except ValueError as resp_e:
+                raise Error(http_status_code=e.code,
+                            error="Unable to parse response: "+resp_str)
+
             code = response_dict.get('code')
 
             # lookup error in the response body,
@@ -145,7 +152,12 @@ class StdLibHandler(BaseHTTPHandler):
                         response_dict=response_dict)
 
         # read response
-        result = json.loads(response.read().decode('utf-8'))
+        resp_str = response.read().decode('utf-8')
+        try:
+            result = json.loads(resp_str)
+        except ValueError as resp_e:
+            raise Error(http_status_code=response.code,
+                        error="Unable to parse response: "+resp_str)
 
         # build meta with headers as a dict
         # py3
@@ -192,8 +204,14 @@ class RequestsHandler(BaseHTTPHandler):
         # verify=False do not verify SSL cert
         response = self._session.send(prepped, stream=True, verify=False)
 
-        # we always expect a json body
-        response_dict = json.loads(response.text)
+        #response_dict = json.loads(response.text)
+        # read response
+        resp_str = response.text
+        try:
+            response_dict = json.loads(resp_str)
+        except ValueError as resp_e:
+            raise Error(http_status_code=response.status_code,
+                        error="Unable to parse response: "+resp_str)
 
         # raise Error if we got http status code >= 400
         if response.status_code >= 400:
